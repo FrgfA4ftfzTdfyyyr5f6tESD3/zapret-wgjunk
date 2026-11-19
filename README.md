@@ -87,3 +87,21 @@ Per the WireGuard specification (*"allow initiator and responder to swap roles"*
    * **`N` (Default):** Runs the proven `Zero-NAT` + `Session Lock` core.
    * **`y` (Beta):** Activates `wg_reverse_rekey.lua` (`220s` suppression window + `DEEP_SLEEP` passive audit).
 4. Start your WireGuard or Windscribe connection.
+
+---
+
+## 📜 Credits & Acknowledgements
+
+This module builds upon and integrates with several foundational open-source network technologies:
+
+- **[zapret](https://github.com/bol-van/zapret)** & **[zapret-win-bundle](https://github.com/bol-van/zapret-win-bundle)** by **bol-van**: The core anti-DPI packet-processing daemon, multi-protocol engine, and Windows runtime framework (`winws2.exe`).
+- **[WinDivert](https://reqrypt.org/windivert.html)** by **basil00**: The high-performance Windows kernel driver enabling real-time packet interception, modification, and injection.
+- **[WireGuard](https://www.wireguard.com/)** by **Jason A. Donenfeld**: The modern, high-speed secure network tunnel protocol and Noise_IK cryptographic framework ("initiator/responder role-swapping" specification).
+- **[AmneziaWG](https://github.com/amnezia-vpn/amnezia-client)**: Pioneer of client-side initiation framing and noise packet obfuscation concepts for UDP tunnels.
+
+---
+
+## ⚖️ License & Disclaimer
+
+This project is distributed for educational and research purposes under open-source terms compatible with upstream components. All copyrights, trademarks, and registered names belong to their respective project authors.
+
