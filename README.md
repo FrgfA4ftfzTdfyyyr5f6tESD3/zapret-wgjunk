@@ -101,6 +101,11 @@ Per the WireGuard specification (*"allow initiator and responder to swap roles"*
 3. Protects both **`UDP 500`** (`IKE_SA_INIT` with `<1s` fast envelope) and **`UDP 4500`** (`IKE_AUTH` NAT-T with `1.3..1.85s` envelope and RFC 7383 `SKF 0x35` fragment pass-through), while leaving Raw **`IPsec ESP (Protocol 50)`** untouched in kernel.
 4. Start your IKEv2 connection.
 
+### All-in-One Unified UDP + Self-Learning AI Brain (`preset2_all_udp.cmd`) [RECOMMENDED]
+1. Inside **`zapret-winws/`**, right-click **`preset2_all_udp.cmd`** and select **Run as Administrator**.
+2. Choose **`0` (AUTO)** to activate the **Dual-Perspective Self-Learning AI Brain (`windscribe_ai_brain.lua`)** across **IKEv2 + WireGuard + OpenVPN UDP** simultaneously in one `winws2.exe` instance.
+3. Switch freely between protocols in Windscribe (or use Automatic mode) without restarting `winws2.exe` — the AI Brain tracks **Welford Lock RTT**, **Discounted UCB1 (`γ=0.90`) + 15% Hysteresis**, **Circadian Buckets**, **Port/Subnet Affinity**, and **Contract-Verified Parameter Evolution (`jc`, `pace`, `size_bias`, `trail_ms`)** with `<1ms` Auto-Rollback in `ai_state/`.
+
 ---
 
 ## 📜 Credits & Acknowledgements

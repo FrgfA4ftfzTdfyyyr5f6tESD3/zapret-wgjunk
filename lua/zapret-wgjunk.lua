@@ -75,6 +75,9 @@ function wg_junk(ctx, desync)
 			print("  Session State : LOCKED_ESTABLISHED (Connection Successfully Secured)")
 			print("  Zero-Latency  : Passed directly to kernel / Wintun (Noise_IK timer intact)")
 			print("  Desync Engine : Disengaged for this flow. All subsequent packets pass directly.")
+			if ai_brain_on_lock and flow_key then
+				ai_brain_on_lock("wireguard", flow_key, payload_len)
+			end
 			print("=========================================================================\n")
 		end
 
@@ -132,6 +135,7 @@ function wg_junk(ctx, desync)
 
 	-- Case 2: Duplicate handshake on an unestablished, already-tried flow
 	if state == "TRIED" then
+		if ai_brain_on_retry_drop then ai_brain_on_retry_drop("wireguard", flow_key, "duplicate_dead_port") end
 		print(string.format("  [DUPLICATE HANDSHAKE DROPPED] Retried on unestablished flow %s ---> DROPPED", flow_key))
 		print("  Reason: Forcing client (Windscribe/WireGuard) to rotate to a fresh ephemeral port immediately.\n")
 		return VERDICT_DROP
@@ -142,32 +146,34 @@ function wg_junk(ctx, desync)
 	hs_counter = hs_counter + 1
 	flow_register_attempt(flow_key, hs_counter)
 
-	-- Determine target mode
+	-- Determine target mode via AI Brain (if loaded) or Tier-1 fallback
 	local raw_mode = tostring(desync.arg.mode or "auto"):lower()
-	local selected_key = (NUM_TO_PROTO and NUM_TO_PROTO[raw_mode]) or raw_mode
-	local is_auto = false
-
-	-- Strict No-Repeat Rotation across Tier-1 Golden Protocols
-	if selected_key == "auto" then
-		is_auto = true
-		local pool = (TIER1_PROTO_LIST and #TIER1_PROTO_LIST > 0) and TIER1_PROTO_LIST or PROTOCOL_LIST
-		if pool and #pool > 0 then
-			local pick = pool[math.random(1, #pool)]
-			if #pool > 1 and pick == last_profile then
-				local candidate_pool = {}
-				for _, v in ipairs(pool) do
-					if v ~= last_profile then table.insert(candidate_pool, v) end
+	local selected_key, spec, is_auto, ai_label = nil, nil, false, nil
+	if ai_brain_select_spec then
+		selected_key, spec, is_auto, ai_label = ai_brain_select_spec("wireguard", raw_mode, last_profile, nil, flow_key)
+		if is_auto then last_profile = selected_key end
+	else
+		selected_key = (NUM_TO_PROTO and NUM_TO_PROTO[raw_mode]) or raw_mode
+		if selected_key == "auto" then
+			is_auto = true
+			local pool = (TIER1_PROTO_LIST and #TIER1_PROTO_LIST > 0) and TIER1_PROTO_LIST or PROTOCOL_LIST
+			if pool and #pool > 0 then
+				local pick = pool[math.random(1, #pool)]
+				if #pool > 1 and pick == last_profile then
+					local candidate_pool = {}
+					for _, v in ipairs(pool) do
+						if v ~= last_profile then table.insert(candidate_pool, v) end
+					end
+					pick = candidate_pool[math.random(1, #candidate_pool)]
 				end
-				pick = candidate_pool[math.random(1, #candidate_pool)]
+				selected_key = pick
+				last_profile = selected_key
+			else
+				selected_key = "quic_v1"
 			end
-			selected_key = pick
-			last_profile = selected_key
-		else
-			selected_key = "quic_v1"
 		end
+		spec = (WG_PROTO_SPECS and WG_PROTO_SPECS[selected_key]) or (WG_PROTO_SPECS and WG_PROTO_SPECS.junk)
 	end
-
-	local spec = (WG_PROTO_SPECS and WG_PROTO_SPECS[selected_key]) or (WG_PROTO_SPECS and WG_PROTO_SPECS.junk)
 	if not spec then
 		spec = {
 			name = "Random Noise Junk",
@@ -177,8 +183,13 @@ function wg_junk(ctx, desync)
 		}
 	end
 
+	local env_opts = ai_brain_get_envelope_opts and ai_brain_get_envelope_opts("wireguard", nil, flow_key) or nil
+	if ai_brain_on_attempt then
+		ai_brain_on_attempt("wireguard", flow_key, selected_key, 1, start_time, env_opts)
+	end
+
 	local time_str = os.date("%H:%M:%S")
-	local tier_label = is_auto and " [Tier-1 Auto-Selected]" or ""
+	local tier_label = is_auto and (ai_label and (" [" .. ai_label .. "]") or " [Tier-1 Auto-Selected]") or ""
 
 	print("=========================================================================")
 	print(string.format("  WIREGUARD HANDSHAKE #%d DETECTED (Fresh Ephemeral Port)", hs_counter))
@@ -186,9 +197,10 @@ function wg_junk(ctx, desync)
 	print(string.format("  Time          : %s", time_str))
 	print(string.format("  Flow (Wire)   : %s", flow_key))
 	print(string.format("  Framing Mode  : Dual-Phase Cover Envelope (%s)%s", spec.name, tier_label))
-	print("  Envelope Plan : LEAD-IN (I1 Signature + I2 Timestamp) ➔ HANDSHAKE (148B Authentic) ➔ DUAL TRAIL (60ms, 180ms)")
+	print("  Envelope Plan : LEAD-IN (I1 Signature + I2 Timestamp) ➔ HANDSHAKE (148B Authentic) ➔ DUAL TRAIL (80ms, 220ms)")
 	print("  Port Strategy : Authentic Client Ephemeral Port (Zero-NAT)")
 	print("-------------------------------------------------------------------------")
 
-	return execute_envelope(ctx, desync, spec, start_time)
+	local verdict = execute_envelope(ctx, desync, spec, start_time, env_opts)
+	return verdict
 end

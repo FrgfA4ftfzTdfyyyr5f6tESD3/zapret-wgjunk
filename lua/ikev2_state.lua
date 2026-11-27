@@ -76,6 +76,8 @@ function ikev2_flow_register_attempt(flow_key, hs_id, mid)
 		entry.last_seen = now
 		entry.last_envelope = now
 		entry.last_mid = mid
+		entry.hs_fire_at = nil
+		entry.frags_sent = {}
 		entry.hs_id = hs_id
 		return entry
 	end
@@ -88,6 +90,8 @@ function ikev2_flow_register_attempt(flow_key, hs_id, mid)
 		last_seen     = now,
 		last_envelope = now,
 		last_mid      = mid,
+		hs_fire_at    = nil,
+		frags_sent    = {},
 		hs_id         = hs_id
 	}
 	IKEV2_FLOW_TABLE[flow_key] = entry

@@ -69,6 +69,7 @@ function ovpn_junk(ctx, desync)
 				print(string.format("  Flow          : %s (%d B)", flow_key, payload_len))
 				print("  Session State : LOCKED_ESTABLISHED (TLS Handshake Proceeding)")
 				print("  Desync Engine : Disengaged for this flow. Zero-overhead passthrough.")
+				if ai_brain_on_lock then ai_brain_on_lock("openvpn", flow_key, payload_len) end
 				print("=========================================================================\n")
 			end
 		end
@@ -96,6 +97,7 @@ function ovpn_junk(ctx, desync)
 
 	-- Case 2: Overlapping retry queued during or right after an active envelope (< 3.0s)
 	if entry and entry.state == "TRIED" and (now - (entry.last_envelope or 0)) < 3.0 then
+		if ai_brain_on_retry_drop then ai_brain_on_retry_drop("openvpn", flow_key, "cooldown_overlap") end
 		print(string.format("  [RETRY OVERLAP DROPPED] Flow %s (dt=%.2fs < 3.0s) ---> DROPPED",
 			flow_key, now - (entry.last_envelope or 0)))
 		return VERDICT_DROP
@@ -107,29 +109,33 @@ function ovpn_junk(ctx, desync)
 	local updated_entry = ovpn_flow_register_attempt(flow_key, ovpn_hs_counter)
 
 	local raw_mode = tostring((desync.arg and desync.arg.mode) or "auto"):lower()
-	local selected_key = (NUM_TO_PROTO and NUM_TO_PROTO[raw_mode]) or raw_mode
-	local is_auto = false
-
-	if selected_key == "auto" then
-		is_auto = true
-		local pool = (TIER1_PROTO_LIST and #TIER1_PROTO_LIST > 0) and TIER1_PROTO_LIST or PROTOCOL_LIST
-		if pool and #pool > 0 then
-			local pick = pool[math.random(1, #pool)]
-			if #pool > 1 and pick == ovpn_last_profile then
-				local candidate_pool = {}
-				for _, v in ipairs(pool) do
-					if v ~= ovpn_last_profile then table.insert(candidate_pool, v) end
+	local exclude_mask = (updated_entry.attempt > 1) and ovpn_last_profile or nil
+	local selected_key, spec, is_auto, ai_label = nil, nil, false, nil
+	if ai_brain_select_spec then
+		selected_key, spec, is_auto, ai_label = ai_brain_select_spec("openvpn", raw_mode, ovpn_last_profile, exclude_mask, flow_key)
+		if is_auto then ovpn_last_profile = selected_key end
+	else
+		selected_key = (NUM_TO_PROTO and NUM_TO_PROTO[raw_mode]) or raw_mode
+		if selected_key == "auto" then
+			is_auto = true
+			local pool = (TIER1_PROTO_LIST and #TIER1_PROTO_LIST > 0) and TIER1_PROTO_LIST or PROTOCOL_LIST
+			if pool and #pool > 0 then
+				local pick = pool[math.random(1, #pool)]
+				if #pool > 1 and pick == ovpn_last_profile then
+					local candidate_pool = {}
+					for _, v in ipairs(pool) do
+						if v ~= ovpn_last_profile then table.insert(candidate_pool, v) end
+					end
+					pick = candidate_pool[math.random(1, #candidate_pool)]
 				end
-				pick = candidate_pool[math.random(1, #candidate_pool)]
+				selected_key = pick
+				ovpn_last_profile = selected_key
+			else
+				selected_key = "quic_v1"
 			end
-			selected_key = pick
-			ovpn_last_profile = selected_key
-		else
-			selected_key = "quic_v1"
 		end
+		spec = (WG_PROTO_SPECS and WG_PROTO_SPECS[selected_key]) or (WG_PROTO_SPECS and WG_PROTO_SPECS.junk)
 	end
-
-	local spec = (WG_PROTO_SPECS and WG_PROTO_SPECS[selected_key]) or (WG_PROTO_SPECS and WG_PROTO_SPECS.junk)
 	if not spec then
 		spec = {
 			name = "Random Noise Junk",
@@ -139,8 +145,13 @@ function ovpn_junk(ctx, desync)
 		}
 	end
 
+	local env_opts = ai_brain_get_envelope_opts and ai_brain_get_envelope_opts("openvpn", nil, flow_key) or nil
+	if ai_brain_on_attempt then
+		ai_brain_on_attempt("openvpn", flow_key, selected_key, updated_entry.attempt, start_time, env_opts)
+	end
+
 	local time_str = os.date("%H:%M:%S")
-	local tier_label = is_auto and " [Tier-1 Auto-Selected]" or ""
+	local tier_label = is_auto and (ai_label and (" [" .. ai_label .. "]") or " [Tier-1 Auto-Selected]") or ""
 
 	print("=========================================================================")
 	print(string.format("  OPENVPN HANDSHAKE #%d DETECTED (Attempt #%d)", ovpn_hs_counter, updated_entry.attempt))
@@ -149,9 +160,10 @@ function ovpn_junk(ctx, desync)
 	print(string.format("  Packet Type   : %s | %d B", reset_label, payload_len))
 	print(string.format("  Flow (Wire)   : %s", flow_key))
 	print(string.format("  Framing Mode  : Dual-Phase Cover Envelope (%s)%s", spec.name, tier_label))
-	print("  Envelope Plan : LEAD-IN (I1 Signature + I2 Timestamp) ➔ HANDSHAKE ➔ DUAL TRAIL (60ms, 180ms)")
+	print("  Envelope Plan : LEAD-IN (I1 Signature + I2 Timestamp) ➔ HANDSHAKE ➔ DUAL TRAIL (80ms, 220ms)")
 	print("  Port Strategy : Authentic Client Ephemeral Port (Zero-NAT)")
 	print("-------------------------------------------------------------------------")
 
-	return execute_envelope(ctx, desync, spec, start_time)
+	local verdict = execute_envelope(ctx, desync, spec, start_time, env_opts)
+	return verdict
 end
