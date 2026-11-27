@@ -45,26 +45,27 @@ function on_trail_timer(name, data)
 end
 
 -- Executes the 3-phase Dual-Phase Cover Envelope sequence
-function execute_envelope(ctx, desync, spec, start_time)
+function execute_envelope(ctx, desync, spec, start_time, opts)
 	local dis = desync.dis
 	local udp_base_len = UDP_BASE_LEN or 8
+	opts = opts or {}
 
-	-- Resolve lead-in packet count (Balanced: 4 to 8 packets)
-	local jc_min = tonumber(desync.arg.jc_min) or spec.c_min or 4
-	local jc_max = tonumber(desync.arg.jc_max) or spec.c_max or 8
+	-- Resolve lead-in packet count (Balanced: 4 to 8 packets, or caller override)
+	local jc_min = opts.jc_min or tonumber(desync.arg.jc_min) or spec.c_min or 4
+	local jc_max = opts.jc_max or tonumber(desync.arg.jc_max) or spec.c_max or 8
 	if jc_min > jc_max then jc_min, jc_max = jc_max, jc_min end
-	local jc = desync.arg.jc and tonumber(desync.arg.jc) or math.random(jc_min, jc_max)
+	local jc = (not opts.jc_min and desync.arg.jc) and tonumber(desync.arg.jc) or math.random(jc_min, jc_max)
 
 	-- Resolve payload size range
 	local jmin = tonumber(desync.arg.jmin) or spec.s_min
 	local jmax = tonumber(desync.arg.jmax) or spec.s_max
 	if jmin > jmax then jmin, jmax = jmax, jmin end
 
-	-- Resolve lead-in pacing window (Strictly 1500 - 2500 ms, i.e. 1.5 to 2.5 seconds)
-	local pace_min = tonumber(desync.arg.pace_min or desync.arg.hs_delay_min) or 1500
-	local pace_max = tonumber(desync.arg.pace_max or desync.arg.hs_delay_max) or 2500
+	-- Resolve lead-in pacing window (Default: 1500 - 2500 ms, or caller override)
+	local pace_min = opts.pace_min or tonumber(desync.arg.pace_min or desync.arg.hs_delay_min) or 1500
+	local pace_max = opts.pace_max or tonumber(desync.arg.pace_max or desync.arg.hs_delay_max) or 2500
 	if pace_min > pace_max then pace_min, pace_max = pace_max, pace_min end
-	local total_window = (desync.arg.pace or desync.arg.hs_delay) and tonumber(desync.arg.pace or desync.arg.hs_delay) or math.random(pace_min, pace_max)
+	local total_window = (not opts.pace_min and (desync.arg.pace or desync.arg.hs_delay)) and tonumber(desync.arg.pace or desync.arg.hs_delay) or math.random(pace_min, pace_max)
 
 	-- Spacing interval between lead-in packets (typically 280 to 420 ms)
 	local interval = (jc > 1) and math.floor(total_window / jc) or total_window

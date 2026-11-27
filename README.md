@@ -95,6 +95,12 @@ Per the WireGuard specification (*"allow initiator and responder to swap roles"*
 3. Supports **all UDP ports** (`1194`, `54783`, `443`, etc.) and all OpenVPN UDP modes (`Plain 14B`, `tls-auth SHA1 42B / SHA256 54B / SHA512 86B`, `tls-crypt 54B`, `tls-crypt-v2 0x50`) with `Zero-NAT`, `Cooldown (<3s)` retry protection, and `Session Lock` on server `0x40`/`0x58` response.
 4. Start your OpenVPN UDP or Windscribe (OpenVPN UDP with `Protocol Tweaks: Disabled`) connection.
 
+### IKEv2 Dual-Port (`preset2_ikev2_junk.cmd`)
+1. Inside **`zapret-winws/`**, right-click **`preset2_ikev2_junk.cmd`** and select **Run as Administrator**.
+2. Choose **`0` (AUTO)** or any specific protocol **`[1..17]`**.
+3. Protects both **`UDP 500`** (`IKE_SA_INIT` with `<1s` fast envelope) and **`UDP 4500`** (`IKE_AUTH` NAT-T with `1.3..1.85s` envelope and RFC 7383 `SKF 0x35` fragment pass-through), while leaving Raw **`IPsec ESP (Protocol 50)`** untouched in kernel.
+4. Start your IKEv2 connection.
+
 ---
 
 ## 📜 Credits & Acknowledgements
