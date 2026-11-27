@@ -100,7 +100,7 @@ function execute_envelope(ctx, desync, spec, start_time)
 	-- -------------------------------------------------------------------------
 	rawsend_dissect(dis)
 	local hs_t = math.floor((clock_getfloattime() - start_time) * 1000)
-	print(string.format("    [HANDSHAKE]     -> Size:  148 B   [SENT at t+%dms] ---> [PASSED]", hs_t))
+	print(string.format("    [HANDSHAKE]     -> Size: %4d B   [SENT at t+%dms] ---> [PASSED]", #dis.payload, hs_t))
 
 	-- -------------------------------------------------------------------------
 	-- Phase 3: [TRAIL] (Dual Shield: Non-blocking timers at t+60ms and t+180ms)

@@ -1,0 +1,1 @@
+udp.PayloadLength>=14 and (udp.Payload[0]=0x38 or udp.Payload[0]=0x40 or udp.Payload[0]=0x50 or udp.Payload[0]=0x58)

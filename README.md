@@ -81,12 +81,19 @@ Per the WireGuard specification (*"allow initiator and responder to swap roles"*
 
 ## 🚀 Usage
 
+### WireGuard (`preset2_wireguard_junk.cmd`)
 1. Inside **`zapret-winws/`**, right-click **`preset2_wireguard_junk.cmd`** and select **Run as Administrator**.
 2. Choose **`0` (AUTO)** to auto-rotate cleanly across 6 Tier-1 protocols, or pick any specific profile **`[1..17]`**.
 3. Choose whether to activate **`Beta Reverse-Handshake (Rekey Swap)`** (`y` or `N`):
    * **`N` (Default):** Runs the proven `Zero-NAT` + `Session Lock` core.
    * **`y` (Beta):** Activates `wg_reverse_rekey.lua` (`220s` suppression window + `DEEP_SLEEP` passive audit).
 4. Start your WireGuard or Windscribe connection.
+
+### OpenVPN UDP (`preset2_openvpn_junk.cmd`)
+1. Inside **`zapret-winws/`**, right-click **`preset2_openvpn_junk.cmd`** and select **Run as Administrator**.
+2. Choose **`0` (AUTO)** or any specific protocol **`[1..17]`**.
+3. Supports **all UDP ports** (`1194`, `54783`, `443`, etc.) and all OpenVPN UDP modes (`Plain 14B`, `tls-auth SHA1 42B / SHA256 54B / SHA512 86B`, `tls-crypt 54B`, `tls-crypt-v2 0x50`) with `Zero-NAT`, `Cooldown (<3s)` retry protection, and `Session Lock` on server `0x40`/`0x58` response.
+4. Start your OpenVPN UDP or Windscribe (OpenVPN UDP with `Protocol Tweaks: Disabled`) connection.
 
 ---
 
